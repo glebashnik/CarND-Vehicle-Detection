@@ -60,57 +60,69 @@ The decision was to use 8 orientations, 8 pixels per cell and 2 cells per block,
 
 ## Training a classifier
 
-HOG features from all channels of HSV color space were used as features for the classifier, implemented in the `get_hsv_hog_features` function under "Training a classifier" section of the notebook.
+Feature extraction is implemented in the "Training a classifier" section of the notebook. I used HOG features from all channels of HSV color space with parameters as described in the previous section. In addition, I added HSV histogram features with 32 bins for all channels. As a result, my feature set contains 4800 features, where 4704 are HOG features and 96 are histogram features.
 
-Features were extracted from vehicle and non-vehicle train images, 17760 images in total. The dataset is balances, with ca. equal number of images in both categories. The appropriate labels were generated: 1 - vehicle, 0 - non-vehicle. Features were normalized using the `StandardScaler` from `sklearn`.
+Features were extracted from vehicle and non-vehicle train images, 17760 images in total. The dataset is balanced, with equal number of images in both categories. The appropriate labels were generated: 1 - vehicle, 0 - non-vehicle. Features were normalized using the `StandardScaler` from `sklearn`.
 
-I used linear SVM classifier with default parameters. For training and testing the datase was split into train and test set, where test set contains 20% of data. Data is shuffled by default when using the `train_test_split()` function. The classifier achived test accuracy of 97.8%.
+I used linear SVM classifier with default parameters. The datase was split into training and testing sets, where testing set contains 20% of images. Data is shuffled by default when using `train_test_split()`. The classifier test accuracy is 98.8%.
 
 ## Sliding Window Search
 
-I implemented the optimized version of sliding window search that extracts HOG features only once and then takes a subsample window to classify. The implementation is in the `find_cars()` function under "Sliding window search" section of the notebook. The image is cropped vertically and then HOG features are extracted the same way as for the training images. The output is a list of bounding boxes for identified cars. Here is the visualizaiton for the test images:
+I implemented the optimized version of sliding window search that extracts HOG features only once and then takes a subsample window to classify. The implementation is in the `find_cars()` function under "Sliding window search" section of the notebook. The image is cropped vertically and then HOG features are extracted the same way as for the training images. Here is the visualization of sliding windows with the following parameters:
+scale=2, px_per_cell=4, cell_per_block=2, cell_per_step=3.
 
-![](output_images/sliding_window.png "Visualization of HOG features with different parameter values")
+![](output_images/windows.png "Visualization of sliding windows")
 
-As can be ssen from images above, I experimented with different scales, concluding that a combination of scales 1.5 and 2 work reasonable well.
+The output is a list of bounding boxes for identified cars. Here is the visualizaiton for the test images:
 
-SVM classifier seems to work reasonable well with reasonably high test accuracy and good performance on the test images. It also seems that a classifier is sensitive to scale. One way to improve it is to do data augumentation, e.g. add cropped and scaled vehicle images to training set. My best guess is that using convolutional neural network would be the best approach. ConvNets are known to perform very well in image classification tasks. This we can avoid manual feature engeneering, process the whole image in one step instead of using sliding window (position invariance and use GPU for faster processi
+![](output_images/sliding_window.png "Different scales for sliding window method")
 
-Only one false positive shows up on test images. Video pipeline described further in this report attempts to eleiminate false positives by looking at multiple frames.
+As can be seen from images above, I experimented with different scales. At the end I choose to use a combination of scales 1.3 and 1.7.
+
+Although linear SVM classifier performs well it is sensitive to scale. One way to improve it is through data augumentation, e.g. add cropped and scaled vehicle images to training set. Another way to improve the classifier is to add other types of features. I experimented with spatial color features without much success. Although the test accuracy increased to 99.3%, when applied to test image there were a lot of false positives. It might indicate overfitting or a bug in my implementation. With HOG and histogram features few false positives show up on test images. Video pipeline described further in this report attempts to eleminate false positives by looking at multiple consequent frames.
 
 ## Video Implementation
 
-## Video pipeline
+### Pipeline steps and parameters
 
-Video pipeline is implemented under "Video pipeline" section of the notebook in the `VehicleDetector` class . Video pipeline looks at 20 last frames of the video, storing and aggergating bounding boxes from these frames in a heatmap. This heatmap is then used to identify pixels that are likely to contain a vehicle, drawing bounding boxes around them.
+The pipeline is implemented in the "Video pipeline" section of the notebook. The pipeline conatins the following steps:
 
+1. Find bounding boxes from the current frame
+1. Create a heatmap from these boxes
+1. Use heat threshold to create a binary image
+1. Store binary image in the buffer, together with binary images from previous frames
+1. Merge binary images from last N frames
+1. Apply threshold to a merged image to create another binary image, this time using buffer threshold
+1. Use `label` to label features in the thresholded merged image
+1. Draw bounding boxes around labeled features
+
+This pipeline contains includes three new parameters:
+
+* heat threshold = 2: number of overlapping bounding boxes from one frame to activate the pixel in the binary image
+* buffer threshold = 0.5: number of overlapping activated pixels from binary images in the buffer to activate the pixel in the mereged image, defined as the proportion of images in the buffer
+* buffer size = 5: number of binary images from previous frames
+
+### Visualization of the pipeline
+
+The pipeline was developed to deal with false negatives and false positives. Here is an example of how it handles false negatives, when the classifier fails to detect a vehicle in some frames. This visualization shows how the pipeline fills missed detection from previous frames dureing the merge step.
+
+![](output_images/false_neg.png "Visualization of the video pipeline on frames with false negatives")
+
+Next visualization shows how this pipeline deals with false positives, when a vehicle is detected where there ar eno vehicles. False positive detections are eliminated when appling the heat threshold, generating binarry images.
+
+![](output_images/false_pos.png "Visualization of the video pipeline on frames with false positives")
+
+### Video processing
+
+The pipeline was reimplemented in the `VehicleDetector` class which the the supporting funcitons to process videos.
 Here is [the output for the test video](./output_videos/test_video.mp4) and here is [the output for the project video](./output_videos/project_video.mp4)
 
+## Discussion
 
+I was not able to eliminate all false positives in the project video. Future work would be to improve the classifier:
 
-#### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
+* Add more training data
+* Data augmentation, crop and scale images from existing training data to make the classifier more invarient to scale
+* Use a convolutional neural network, which are known to perform very well in image classification tasks
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
-
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
-
-### Here are six frames and their corresponding heatmaps:
-
-![alt text][image5]
-
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
-
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
-
-
-
----
-
-### Discussion
-
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
-
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
-
+Annother issue is that the current pipeline can't distinguish between cars when they overlap, e.g. 36s in the project video. Finally the pipeline is rather slow, processing of every frame takes 1.5 seconds on Intel Core i7-3770 CPU. My experiments revealed that the main factor is the number of sliding windows, thus lower scaling takes much more time. Vectorising the sliding window algorithm and using GPU would speed up the computations.
