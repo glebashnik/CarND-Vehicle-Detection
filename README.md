@@ -64,7 +64,7 @@ Feature extraction is implemented in the "Training a classifier" section of the 
 
 Features were extracted from vehicle and non-vehicle train images, 17760 images in total. The dataset is balanced, with equal number of images in both categories. The appropriate labels were generated: 1 - vehicle, 0 - non-vehicle. Features were normalized using the `StandardScaler` from `sklearn`.
 
-I used linear SVM classifier with default parameters. The datase was split into training and testing sets, where testing set contains 20% of images. Data is shuffled by default when using `train_test_split()`. The classifier test accuracy is 98.8%.
+I used linear SVM classifier with default parameters. The dataset was split into training and testing sets, where testing set contains 20% of images. Data is shuffled by default when using `train_test_split()`. The classifier test accuracy is 98.8%.
 
 ## Sliding Window Search
 
@@ -98,9 +98,9 @@ The pipeline is implemented in the "Video pipeline" section of the notebook. The
 
 This pipeline contains includes three new parameters:
 
-* heat threshold = 2: number of overlapping bounding boxes from one frame to activate the pixel in the binary image
-* buffer threshold = 0.5: number of overlapping activated pixels from binary images in the buffer to activate the pixel in the mereged image, defined as the proportion of images in the buffer
-* buffer size = 5: number of binary images from previous frames
+* heat threshold, e.g. 2: number of overlapping bounding boxes from one frame to activate the pixel in the binary image
+* buffer threshold, e.g. 0.5: number of overlapping activated pixels from binary images in the buffer to activate the pixel in the mereged image, defined as the proportion of images in the buffer
+* buffer size, e.g. 20: number of binary images from previous frames to store and use in the pipeline
 
 ### Visualization of the pipeline
 
@@ -108,13 +108,13 @@ The pipeline was developed to deal with false negatives and false positives. Her
 
 ![](output_images/false_neg.png "Visualization of the video pipeline on frames with false negatives")
 
-Next visualization shows how this pipeline deals with false positives, when a vehicle is detected where there ar eno vehicles. False positive detections are eliminated when appling the heat threshold, generating binarry images.
+Next visualization shows how this pipeline deals with false positives, when a vehicle is detected where there are no vehicles. False positive detections are eliminated when appling the heat threshold, generating binary images.
 
 ![](output_images/false_pos.png "Visualization of the video pipeline on frames with false positives")
 
 ### Video processing
 
-The pipeline was reimplemented in the `VehicleDetector` class which the the supporting funcitons to process videos.
+The pipeline was reimplemented in the `VehicleDetector` class including supporting funcitons to process video clips.
 Here is [the output for the test video](./output_videos/test_video.mp4) and here is [the output for the project video](./output_videos/project_video.mp4)
 
 ## Discussion
